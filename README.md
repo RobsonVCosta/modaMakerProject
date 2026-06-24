@@ -56,6 +56,91 @@ For advanced users and developers who want to compile Valentina from the source 
 
 Please visit the [Wiki](https://gitlab.com/smart-pattern/valentina/-/wikis/home) for comprehensive instructions tailored to your development environment.
 
+## Example Authentication Server
+
+The login dialog can point to a custom authentication server. For example:
+
+```cpp
+const auto kLoginUrl = QStringLiteral("https://www.yourdomain.com/login");
+const auto kRefreshUrl = QStringLiteral("https://www.yourdomain.com/refresh");
+const auto kLogoutUrl = QStringLiteral("https://www.yourdomain.com/logout");
+```
+
+For local tests, you can temporarily point those constants to `http://localhost:3000/login`, `http://localhost:3000/refresh`, and `http://localhost:3000/logout`, then run this mock server with Node.js:
+
+```js
+const http = require("http");
+
+const user = {
+  name: "Demo User",
+  email: "demo@example.com",
+};
+
+function json(res, statusCode, body) {
+  res.writeHead(statusCode, { "Content-Type": "application/json" });
+  res.end(JSON.stringify(body));
+}
+
+function readBody(req) {
+  return new Promise((resolve) => {
+    let data = "";
+    req.on("data", (chunk) => {
+      data += chunk;
+    });
+    req.on("end", () => {
+      resolve(data ? JSON.parse(data) : {});
+    });
+  });
+}
+
+const server = http.createServer(async (req, res) => {
+  if (req.method === "POST" && req.url === "/login") {
+    const body = await readBody(req);
+
+    if (body.email !== "demo@example.com" || body.password !== "demo123") {
+      json(res, 401, { message: "Invalid credentials." });
+      return;
+    }
+
+    json(res, 200, {
+      access_token: "mock-access-token",
+      refresh_token: "mock-refresh-token",
+      access_token_expires_in: 3600,
+      refresh_token_expires_in: 2592000,
+      user,
+    });
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/refresh") {
+    json(res, 200, {
+      access_token: "mock-access-token-refreshed",
+      refresh_token: "mock-refresh-token",
+      access_token_expires_in: 3600,
+      refresh_token_expires_in: 2592000,
+      user,
+    });
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/logout") {
+    json(res, 200, { message: "Logout successful." });
+    return;
+  }
+
+  json(res, 404, { message: "Not found." });
+});
+
+server.listen(3000, () => {
+  console.log("Mock auth server running at http://localhost:3000");
+});
+```
+
+The test credentials for this mock are:
+
+- Email: `demo@example.com`
+- Password: `demo123`
+
 ## Support
 
 We value your experience with Valentina and are here to assist you at every step. For any questions, issues, or collaborative discussions, explore the various support channels available:
